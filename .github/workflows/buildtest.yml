@@ -8,7 +8,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest]
-        vim_version: [v8.1.0005, v8.2.0000, nightly, stable]
+        vim_version: [v8.1.0005, v8.2.0000, nightly]
         exclude:
           # exclude distributed vim in ubuntu-latest
           - os: ubuntu-latest
