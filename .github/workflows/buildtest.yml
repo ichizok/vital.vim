@@ -8,24 +8,13 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest]
-        vim: [v8.1.0005, v8.2.0000, head]
-        type: [vim, macvim]
-        download: [available]
-        # Linux vim 8.1 build only, action-setup-vim 1.0.1 or after auto switch
+        vim_version: [v8.1.0005, v8.2.0000, nightly, stable]
         exclude:
+          # exclude distributed vim in ubuntu-latest
           - os: ubuntu-latest
-            # linux only vim/ macvim run as mac os
-            type: macvim
-          - os: macos-latest
-            type: macvim
-            # macvim only head
-            vim: v8.1.0005
-          - os: macos-latest
-            type: macvim
-            # macvim only head
-            vim: v8.2.0000
+            vim_version: stable
     runs-on: ${{ matrix.os }}
-    name: ${{ matrix.type }} ${{ matrix.vim }}/${{ matrix.os }} test
+    name: vim ${{ matrix.vim_version }}/${{ matrix.os }} test
     steps:
       - name: Checkout
         uses: actions/checkout@v1
@@ -34,7 +23,8 @@ jobs:
         run: |
           sudo apt-get update
       - name: Setup lua
-        if: matrix.type == 'macvim'
+        # presuppose matrix.os == 'macos-latest'
+        if: matrix.vim_version == 'stable'
         uses: xpol/setup-lua@master
         with:
           lua-version: ${{ env.LUA_VERSION }}
@@ -57,19 +47,18 @@ jobs:
           pip3 install --user -r requirements.txt
       - name: Setup Vim
         id: 'vim'
-        uses: thinca/action-setup-vim@v1
+        uses: rhysd/action-setup-vim@v1
         with:
-          vim_version: '${{ matrix.vim }}'
-          vim_type: '${{ matrix.type }}'
-          download: '${{ matrix.vim_download || matrix.download }}'
+          version: ${{ matrix.vim_version }}
       - name: Setup MacVim
-        if: matrix.type == 'macvim'
+        # presuppose matrix.os == 'macos-latest'
+        if: matrix.vim_version == 'stable'
         run: |
           echo "set luadll=${GITHUB_WORKSPACE}/.lua/lib/liblua.dylib" > ${GITHUB_WORKSPACE}/.themisrc
       - name: Run test
         env:
           THEMIS_VIM: ${{ steps.vim.outputs.executable }}
-          THEMIS_PROFILE: ${{ github.workspace }}/vim-profile-${{ runner.os }}-${{ matrix.vim }}-${{ matrix.type }}.txt
+          THEMIS_PROFILE: ${{ github.workspace }}/vim-profile-${{ runner.os }}-${{ matrix.vim_version }}.txt
         run: |
           git clone --depth 1 --branch ${THEMIS_VERSION} --single-branch https://github.com/thinca/vim-themis  ${GITHUB_WORKSPACE}/vim-themis
           git clone --depth 1                                            https://github.com/Shougo/vimproc.vim ${GITHUB_WORKSPACE}/vimproc
@@ -78,7 +67,7 @@ jobs:
           ${GITHUB_WORKSPACE}/vim-themis/bin/themis --runtimepath ${GITHUB_WORKSPACE}/vimproc --exclude ConcurrentProcess --reporter dot
       - name: Collect coverage
         env:
-          THEMIS_PROFILE: ${{ github.workspace }}/vim-profile-${{ runner.os }}-${{ matrix.vim }}-${{ matrix.type }}.txt
+          THEMIS_PROFILE: ${{ github.workspace }}/vim-profile-${{ runner.os }}-${{ matrix.vim_version }}.txt
         run: |
           export PATH=$(python3 -m site --user-base)/bin:${PATH}
           covimerage write_coverage "${THEMIS_PROFILE}"
@@ -92,11 +81,9 @@ jobs:
     strategy:
       matrix:
         os: [windows-latest]
-        vim: [v8.1.0005, v8.2.0000, head]
-        type: [vim]
-        download: [available]
+        vim_version: [v8.1.0005, v8.2.0008, nightly]
     runs-on: ${{ matrix.os }}
-    name: ${{ matrix.type }} ${{ matrix.vim }}/${{ matrix.os }} test
+    name: vim ${{ matrix.vim_version }}/${{ matrix.os }} test
     steps:
       - name: Checkout
         uses: actions/checkout@v1
@@ -147,11 +134,10 @@ jobs:
             ${{ runner.os }}-pip-
       - name: Setup Vim
         id: 'vim'
-        uses: thinca/action-setup-vim@v1
+        uses: rhysd/action-setup-vim@v1
         with:
-          vim_version: '${{ matrix.vim }}'
-          vim_type: '${{ matrix.type }}'
-          download: '${{ matrix.vim_download || matrix.download }}'
+          version: ${{ matrix.vim_version }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
       - name: Build
         shell: pwsh
         run: |
@@ -161,7 +147,7 @@ jobs:
       - name: Run test
         env:
           THEMIS_VIM: ${{ steps.vim.outputs.executable }}
-          THEMIS_PROFILE: ${{ github.workspace }}/vim-profile-${{ runner.os }}-${{ matrix.vim }}-${{ matrix.type }}.txt
+          THEMIS_PROFILE: ${{ github.workspace }}/vim-profile-${{ runner.os }}-${{ matrix.vim_version }}.txt
         shell: cmd
         run: |
           set TEMP=%GITHUB_WORKSPACE%\tmp
@@ -171,7 +157,7 @@ jobs:
           %GITHUB_WORKSPACE%\vim-themis\bin\themis.bat --runtimepath %GITHUB_WORKSPACE%\vimproc --exclude ConcurrentProcess --reporter dot
       - name: Collect coverage
         env:
-          THEMIS_PROFILE: ${{ github.workspace }}/vim-profile-${{ runner.os }}-${{ matrix.vim }}-${{ matrix.type }}.txt
+          THEMIS_PROFILE: ${{ github.workspace }}/vim-profile-${{ runner.os }}-${{ matrix.vim_version }}.txt
         shell: pwsh
         run: |
           pip install -r requirements.txt
